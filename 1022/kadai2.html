@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -6,18 +5,15 @@
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0">
     <title>飛行ロボットAR</title>
-
     <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/3.4.7/aframe/build/aframe-ar.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.5.4/dist/aframe-extras.min.js"></script>
-
     <style>
         body {
             margin: 0;
             overflow: hidden;
             font-family: sans-serif;
         }
-
         #hud {
             position: fixed;
             top: 10px;
@@ -26,7 +22,6 @@
             z-index: 999;
             pointer-events: none;
         }
-
         #hud select, #hud button {
             pointer-events: auto;
         }
@@ -37,7 +32,6 @@
             border-radius: 8px;
             margin-bottom: 5px;
         }
-
         button {
             font-size: 15px;
             padding: 10px 12px;
@@ -48,17 +42,14 @@
             margin: 3px;
             cursor: pointer;
         }
-
         button:active {
             background-color: darkblue;
         }
-
         .controls {
             display: flex;
             flex-wrap: wrap;
             gap: 3px;
         }
-
         #status {
             display: inline-block;
             background: rgba(0, 0, 0, 0.65);
@@ -70,7 +61,6 @@
         }
     </style>
 </head>
-
 <body>
     <div id="hud">
         <select id="animationSelect">
@@ -81,39 +71,31 @@
             <option value="CharacterArmature|Shoot">射撃</option>
             <option value="CharacterArmature|Dead">倒れる</option>
         </select>
-
         <div class="controls">
             <button id="enlargeButton">拡大</button>
             <button id="shrinkButton">縮小</button>
             <button id="rotateButton">回転</button>
             <button id="reverseButton">逆回転</button>
         </div>
-
         <div class="controls">
             <button id="floatButton">浮遊ON</button>
             <button id="pauseButton">動作停止</button>
             <button id="speedButton">速度 ×1</button>
             <button id="resetButton">リセット</button>
         </div>
-
         <div id="status">ロボットを読み込み中...</div>
     </div>
-
     <a-scene
         embedded
         vr-mode-ui="enabled: false"
         arjs="sourceType: webcam; debugUIEnabled: false;">
-
         <a-marker preset="hiro" smooth="true">
-
             <a-entity
                 id="model"
                 position="0 0.5 0"
                 scale="1 1 1"
                 rotation="0 0 0">
-
                 <a-entity id="floating">
-
                     <a-gltf-model
                         id="robot"
                         src="robot1.glb"
@@ -122,15 +104,11 @@
                         scale="0.5 0.5 0.5"
                         animation-mixer="clip: CharacterArmature|Idle; loop: repeat">
                     </a-gltf-model>
-
                 </a-entity>
             </a-entity>
-
         </a-marker>
-
         <a-entity camera></a-entity>
     </a-scene>
-
     <script>
         const robot = document.getElementById("robot");
         const model = document.getElementById("model");
@@ -218,11 +196,10 @@
         }
 
         reverseButton.addEventListener("click", reverseModel);
-
+        
         // 浮遊ON/OFF
         function toggleFloat() {
             isFloating = !isFloating;
-
             if (isFloating) {
                 floating.setAttribute("animation", {
                     property: "position",
@@ -246,20 +223,16 @@
         // 動作停止・再開
         function togglePause() {
             isPaused = !isPaused;
-
             const mixer = robot.components["animation-mixer"];
-
             if (mixer && mixer.mixer) {
                 mixer.mixer.timeScale = isPaused
                     ? 0
                     : speeds[speedIndex];
             }
-
             pauseButton.textContent = isPaused
                 ? "動作再開"
                 : "動作停止";
         }
-
         pauseButton.addEventListener("click", togglePause);
 
         // アニメーション速度変更
@@ -295,7 +268,6 @@
             speedButton.textContent = "速度 ×1";
             status.textContent = "初期状態に戻しました";
         }
-
         resetButton.addEventListener("click", resetModel);
     </script>
 </body>
