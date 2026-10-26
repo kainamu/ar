@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>馬</title>
+    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/3.4.7/aframe/build/aframe-ar.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.5.4/dist/aframe-extras.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: sans-serif;
+        }
+        #hud {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            z-index: 999;
+            pointer-events: none;
+        }
+        #hud select,
+        #hud button {
+            pointer-events: auto;
+        }
+        select {
+            font-size: 16px;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 5px;
+        }
+        button {
+            font-size: 15px;
+            padding: 10px 12px;
+            border: none;
+            background-color: royalblue;
+            color: white;
+            border-radius: 8px;
+            margin: 3px;
+            cursor: pointer;
+        }
+        button:active {
+            background-color: darkblue;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+        }
+        #status {
+            display: inline-block;
+            background: rgba(0, 0, 0, 0.65);
+            color: white;
+            padding: 8px;
+            margin-top: 8px;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="hud">
+        <select id="animationSelect">
+            <option value="AnimalArmature|Idle">待機</option>
+            <option value="AnimalArmature|Idle_2">待機2</option>
+            <option value="AnimalArmature|Idle_Headlow">頭を下げる</option>
+            <option value="AnimalArmature|Walk">歩く</option>
+            <option value="AnimalArmature|Gallop">走る</option>
+            <option value="AnimalArmature|Gallop_Jump">走りながらジャンプ</option>
+            <option value="AnimalArmature|Jump_toIdle">ジャンプから待機</option>
+            <option value="AnimalArmature|Eating">食事</option>
+            <option value="AnimalArmature|Attack_Headbutt">頭突き</option>
+            <option value="AnimalArmature|Attack_Kick">蹴り攻撃</option>
+            <option value="AnimalArmature|Idle_HitReact_Left">左から攻撃を受ける</option>
+            <option value="AnimalArmature|Idle_HitReact_Right">右から攻撃を受ける</option>
+            <option value="AnimalArmature|Death">倒れる</option>
+        </select>
+        <div class="controls">
+            <button id="enlargeButton">拡大</button>
+            <button id="shrinkButton">縮小</button>
+            <button id="rotateButton">回転</button>
+            <button id="reverseButton">逆回転</button>
+        </div>
+        <div class="controls">
+            <button id="floatButton">浮遊ON</button>
+            <button id="pauseButton">動作停止</button>
+            <button id="speedButton">速度 ×1</button>
+            <button id="resetButton">リセット</button>
+        </div>
+        <div id="status">馬を読み込み中...</div>
+    </div>
+    <a-scene embedded vr-mode-ui="enabled: false" arjs="sourceType: webcam; debugUIEnabled: false;">
+
+        <a-marker preset="hiro" smooth="true">
+            <a-entity 
+            id="model" 
+            position="0 0.2 0" 
+            scale="1 1 1" 
+            rotation="0 0 0">
+
+                <a-entity id="floating">
+                    <a-gltf-model 
+                    id="robot" 
+                    src="uma.glb" 
+                    position="0 0 0" 
+                    rotation="0 180 0" 
+                    scale="0.1 0.1 0.1"
+                    animation-mixer="clip: AnimalArmature|Idle; loop: repeat">
+                    </a-gltf-model>
+                </a-entity>
+            </a-entity>
+        </a-marker>
+        <a-entity 
+        camera>
+    </a-entity>
+    </a-scene>
+    
+    <script>
+        const robot = document.getElementById("robot");
+        const model = document.getElementById("model");
+        const floating = document.getElementById("floating");
+        const animationSelect = document.getElementById("animationSelect");
+        const status = document.getElementById("status");
+
+        const enlargeButton = document.getElementById("enlargeButton");
+        const shrinkButton = document.getElementById("shrinkButton");
+        const rotateButton = document.getElementById("rotateButton");
+        const reverseButton = document.getElementById("reverseButton");
+        const floatButton = document.getElementById("floatButton");
+        const pauseButton = document.getElementById("pauseButton");
+        const speedButton = document.getElementById("speedButton");
+        const resetButton = document.getElementById("resetButton");
+
+        let size = 1;
+        let angle = 0;
+        let isFloating = false;
+        let isPaused = false;
+        let speedIndex = 0;
+        const speeds = [1, 1.5, 2, 0.5];
+
+        // モデルの読み込み確認
+        robot.addEventListener("model-loaded", function () {
+            status.textContent = "馬の準備完了";
+            updateMixer();
+        });
+
+        robot.addEventListener("model-error", function () {
+            status.textContent = "モデルの読み込みに失敗しました";
+        });
+
+        // アニメーション設定
+        function updateMixer() {
+            robot.setAttribute("animation-mixer", {
+                clip: animationSelect.value,
+                loop: "repeat",
+                timeScale: speeds[speedIndex]
+            });
+
+            const mixer = robot.components["animation-mixer"];
+
+            if (mixer && mixer.mixer) {
+                mixer.mixer.timeScale = isPaused
+                    ? 0
+                    : speeds[speedIndex];
+            }
+        }
+
+        function changeAnimation() {
+            updateMixer();
+        }
+
+        animationSelect.addEventListener("change", changeAnimation);
+
+        // 拡大
+        function enlargeModel() {
+            size = Math.min(3, Math.round((size + 0.1) * 10) / 10);
+            model.setAttribute("scale", `${size} ${size} ${size}`);
+        }
+
+        enlargeButton.addEventListener("click", enlargeModel);
+
+        // 縮小
+        function shrinkModel() {
+            size = Math.max(0.1, Math.round((size - 0.1) * 10) / 10);
+            model.setAttribute("scale", `${size} ${size} ${size}`);
+        }
+
+        shrinkButton.addEventListener("click", shrinkModel);
+
+        // 回転
+        function rotateModel() {
+            angle += 15;
+            model.setAttribute("rotation", `0 ${angle} 0`);
+        }
+
+        rotateButton.addEventListener("click", rotateModel);
+
+        // 逆回転
+        function reverseModel() {
+            angle -= 15;
+            model.setAttribute("rotation", `0 ${angle} 0`);
+        }
+
+        reverseButton.addEventListener("click", reverseModel);
+
+        // 浮遊ON/OFF
+        function toggleFloat() {
+            isFloating = !isFloating;
+
+            if (isFloating) {
+                floating.setAttribute("animation", {
+                    property: "position",
+                    from: "0 0 0",
+                    to: "0 0.25 0",
+                    dur: 1200,
+                    dir: "alternate",
+                    loop: true,
+                    easing: "easeInOutSine"
+                });
+                floatButton.textContent = "浮遊OFF";
+            } else {
+                floating.removeAttribute("animation");
+                floating.setAttribute("position", "0 0 0");
+                floatButton.textContent = "浮遊ON";
+            }
+        }
+
+        floatButton.addEventListener("click", toggleFloat);
+
+        // 動作停止・再開
+        function togglePause() {
+            isPaused = !isPaused;
+
+            const mixer = robot.components["animation-mixer"];
+
+            if (mixer && mixer.mixer) {
+                mixer.mixer.timeScale = isPaused
+                    ? 0
+                    : speeds[speedIndex];
+            }
+
+            pauseButton.textContent = isPaused
+                ? "動作再開"
+                : "動作停止";
+        }
+
+        pauseButton.addEventListener("click", togglePause);
+
+        // アニメーション速度変更
+        function changeSpeed() {
+            speedIndex = (speedIndex + 1) % speeds.length;
+            updateMixer();
+            speedButton.textContent = `速度 ×${speeds[speedIndex]}`;
+        }
+
+        speedButton.addEventListener("click", changeSpeed);
+
+        // リセット
+        function resetModel() {
+            size = 1;
+            angle = 0;
+            isPaused = false;
+            speedIndex = 0;
+
+            model.setAttribute("scale", "1 1 1");
+            model.setAttribute("rotation", "0 0 0");
+
+            if (isFloating) {
+                isFloating = false;
+                floating.removeAttribute("animation");
+                floating.setAttribute("position", "0 0 0");
+            }
+            animationSelect.value = "AnimalArmature|Idle";
+            updateMixer();
+
+            floatButton.textContent = "浮遊ON";
+            pauseButton.textContent = "動作停止";
+            speedButton.textContent = "速度 ×1";
+            status.textContent = "初期状態に戻しました";
+        }
+
+        resetButton.addEventListener("click", resetModel);
+    </script>
+</body>
+
+</html>
