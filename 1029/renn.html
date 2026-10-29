@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARロボットバトル</title>
+
+    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/3.4.7/aframe/build/aframe-ar.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.5.4/dist/aframe-extras.min.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: sans-serif;
+        }
+
+        /* HP表示 */
+        #hud {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 999;
+            color: black;
+        }
+
+        progress {
+            width: 160px;
+            height: 15px;
+        }
+
+        /* ゲーム終了画面 */
+        #gameOverScreen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            z-index: 9999;
+
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        #resultTitle {
+            font-size: 45px;
+            color: red;
+            margin-bottom: 10px;
+        }
+
+        #resultMessage {
+            font-size: 22px;
+        }
+
+        #retryButton {
+            font-size: 20px;
+            padding: 12px 25px;
+            background: royalblue;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        #retryButton:hover {
+            background: darkblue;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- HP表示 -->
+    <div id="hud">
+        <p>ROBOT HP：<span id="robotHpText">50</span></p>
+        <progress id="robotHpBar" max="50" value="50"></progress>
+
+        <p>自分のHP：<span id="myHpText">50</span></p>
+        <progress id="myHpBar" max="50" value="50"></progress>
+    </div>
+
+    <!-- ゲーム終了画面 -->
+    <div id="gameOverScreen">
+        <h1 id="resultTitle">GAME OVER</h1>
+        <p id="resultMessage">戦闘終了！</p>
+        <button id="retryButton">もう一度戦う</button>
+    </div>
+
+    <!-- AR画面 -->
+    <a-scene
+        embedded
+        vr-mode-ui="enabled: false"
+        arjs="sourceType: webcam; debugUIEnabled: false;"
+        cursor="rayOrigin: mouse"
+        raycaster="objects: .clickable">
+
+        <a-marker preset="hiro" smooth="true">
+
+            <a-entity id="model" position="0 0 0.5">
+
+                <a-gltf-model
+                    id="robot"
+                    class="clickable"
+                    src="robot.glb"
+                    position="0 0 0"
+                    scale="0.3 0.3 0.3"
+                    rotation="-90 0 0"
+                    animation-mixer="clip: RobotArmature|Robot_Idle; loop: repeat">
+                </a-gltf-model>
+
+            </a-entity>
+
+        </a-marker>
+
+        <a-entity camera></a-entity>
+
+    </a-scene>
+
+    <script>
+
+        // ========================================
+        // 要素取得
+        // ========================================
+
+        const robot = document.getElementById("robot");
+
+        const robotHpText = document.getElementById("robotHpText");
+        const robotHpBar = document.getElementById("robotHpBar");
+
+        const myHpText = document.getElementById("myHpText");
+        const myHpBar = document.getElementById("myHpBar");
+
+        const gameOverScreen = document.getElementById("gameOverScreen");
+        const resultTitle = document.getElementById("resultTitle");
+        const resultMessage = document.getElementById("resultMessage");
+        const retryButton = document.getElementById("retryButton");
+
+
+        // ========================================
+        // HP・ゲーム状態
+        // ========================================
+
+        let robotHp = 50;
+        let myHp = 50;
+
+        let isGameOver = false;
+
+        // 攻撃処理中かどうか
+        let isAttacking = false;
+
+        // 終了画面のタイマー
+        let gameOverTimer = null;
+
+
+        // ========================================
+        // 効果音
+        // ========================================
+
+        const hitSound = new Audio("hit.mp3");
+        const missSound = new Audio("miss.mp3");
+        const deathSound = new Audio("death.mp3");
+        const enemySound = new Audio("enemy-attack.mp3");
+
+
+        // ========================================
+        // 効果音再生
+        // ========================================
+
+        function playSound(sound) {
+
+            sound.currentTime = 0;
+
+            sound.play().catch(function(error) {
+                console.log("音声再生エラー:", error);
+            });
+
+        }
+
+
+        // ========================================
+        // HP表示更新
+        // ========================================
+
+        function updateHp() {
+
+            robotHpText.textContent = robotHp;
+            robotHpBar.value = robotHp;
+
+            myHpText.textContent = myHp;
+            myHpBar.value = myHp;
+
+        }
+
+
+        // ========================================
+        // アニメーション変更
+        // ========================================
+
+        function changeRobotAnimation(clipName, loopType, clamp) {
+
+            robot.removeAttribute("animation-mixer");
+
+            robot.setAttribute("animation-mixer", {
+                clip: clipName,
+                loop: loopType,
+                clampWhenFinished: clamp
+            });
+
+        }
+
+
+        // ========================================
+        // プレイヤーの攻撃
+        // ========================================
+
+        function attack() {
+
+            // ゲーム終了・攻撃中は操作不可
+            if (isGameOver || isAttacking || robotHp === 0 || myHp === 0) {
+                return;
+            }
+
+            isAttacking = true;
+
+            // 30%の確率で攻撃を外す
+            if (Math.random() < 0.3) {
+
+                playSound(missSound);
+
+                // 外れた場合は少し待って操作可能に戻す
+                setTimeout(function() {
+                    isAttacking = false;
+                }, 500);
+
+                return;
+            }
+
+            // 1～10のランダムダメージ
+            let damage = Math.floor(Math.random() * 10) + 1;
+
+            robotHp -= damage;
+
+            if (robotHp < 0) {
+                robotHp = 0;
+            }
+
+            updateHp();
+
+            // ロボットのHPが0になった
+            if (robotHp === 0) {
+
+                deathAnimation();
+
+                // 3秒後に勝利画面
+                gameOverTimer = setTimeout(function() {
+                    gameOver(true);
+                }, 3000);
+
+            } else {
+
+                hitAnimation();
+
+            }
+
+        }
+
+
+        // ========================================
+        // ロボットの死亡アニメーション
+        // ========================================
+
+        function deathAnimation() {
+
+            changeRobotAnimation(
+                "RobotArmature|Robot_Death",
+                "once",
+                true
+            );
+
+            playSound(deathSound);
+
+        }
+
+
+        // ========================================
+        // ロボットの被弾アニメーション
+        // ========================================
+
+        function hitAnimation() {
+
+            changeRobotAnimation(
+                "RobotArmature|Robot_Jump",
+                "once",
+                false
+            );
+
+            playSound(hitSound);
+
+        }
+
+
+        // ========================================
+        // ロボットの反撃
+        // ========================================
+
+        function enemyAttack() {
+
+            if (isGameOver || robotHp === 0 || myHp === 0) {
+                return;
+            }
+
+            // 反撃アニメーション
+            enemyAnimation();
+
+            // 1～10のランダムダメージ
+            let damage = Math.floor(Math.random() * 10) + 1;
+
+            myHp -= damage;
+
+            if (myHp < 0) {
+                myHp = 0;
+            }
+
+            updateHp();
+
+            // 自分のHPが0になった
+            if (myHp === 0) {
+
+                // 2秒後に敗北画面
+                gameOverTimer = setTimeout(function() {
+                    gameOver(false);
+                }, 2000);
+
+            } else {
+
+                // 反撃終了後に再び攻撃可能にする
+                setTimeout(function() {
+
+                    if (!isGameOver) {
+
+                        changeRobotAnimation(
+                            "RobotArmature|Robot_Idle",
+                            "repeat",
+                            false
+                        );
+
+                        isAttacking = false;
+
+                    }
+
+                }, 1500);
+
+            }
+
+        }
+
+
+        // ========================================
+        // ロボットの攻撃アニメーション
+        // ========================================
+
+        function enemyAnimation() {
+
+            changeRobotAnimation(
+                "RobotArmature|Robot_Running",
+                "once",
+                false
+            );
+
+            playSound(enemySound);
+
+        }
+
+
+        // ========================================
+        // アニメーション終了イベント
+        // ========================================
+
+        robot.addEventListener("animation-finished", function(event) {
+
+            // ゲーム終了後は処理しない
+            if (isGameOver || robotHp === 0 || myHp === 0) {
+                return;
+            }
+
+            const clipName = event.detail.action.getClip().name;
+
+            // 被弾アニメーションが終了したら反撃
+            if (clipName === "RobotArmature|Robot_Jump") {
+                enemyAttack();
+            }
+
+        });
+
+
+        // ========================================
+        // ゲーム終了処理
+        // ========================================
+
+        function gameOver(isWin) {
+
+            if (isGameOver) {
+                return;
+            }
+
+            isGameOver = true;
+
+            gameOverScreen.style.display = "flex";
+
+            if (isWin) {
+
+                resultTitle.textContent = "YOU WIN！";
+                resultTitle.style.color = "gold";
+                resultMessage.textContent = "ロボットを倒した！";
+
+            } else {
+
+                resultTitle.textContent = "GAME OVER";
+                resultTitle.style.color = "red";
+                resultMessage.textContent = "ロボットに負けてしまった...";
+
+            }
+
+        }
+
+
+        // ========================================
+        // リスタート
+        // ========================================
+
+        function retryGame() {
+
+            // 前のタイマーを解除
+            if (gameOverTimer !== null) {
+                clearTimeout(gameOverTimer);
+                gameOverTimer = null;
+            }
+
+            robotHp = 50;
+            myHp = 50;
+
+            isGameOver = false;
+            isAttacking = false;
+
+            updateHp();
+
+            gameOverScreen.style.display = "none";
+
+            changeRobotAnimation(
+                "RobotArmature|Robot_Idle",
+                "repeat",
+                false
+            );
+
+        }
+
+
+        // ========================================
+        // イベント登録
+        // ========================================
+
+        robot.addEventListener("click", attack);
+
+        retryButton.addEventListener("click", retryGame);
+
+    </script>
+
+</body>
+</html>
