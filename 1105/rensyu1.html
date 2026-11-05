@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARボタンタッチ</title>
+    <script src="https://cdn.jsdelivr.net/npm/aframe@1.5.0/dist/aframe-master.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.6.0/dist/aframe-extras.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/projapayuri/aframe-gesture-hands@v0.9.2/aframe-gesture-hands.js"></script>
+
+</head>
+
+<body>
+    <a-scene hands id="scene">
+        <a-gltf-model 
+            id="model" 
+            src="./magic_circle/c_cyan.glb" 
+            animation-mixer="clip:MagicCircle_Loop"
+            position="0 0.4 -3" 
+            rotation="-90 0 0" 
+            scale="2 2 2">
+    </a-gltf-model>
+        <a-plane 
+            id="cyan-panel" 
+            color="skyblue" 
+            opacity="0.8" 
+            width="0.9" 
+            height="0.35" 
+            rotation="-10 0 0"
+            position="-1.5 -0.8 -2">
+        <a-text 
+            value="CYAN" 
+            align="center" 
+            color="black" 
+            width="2">
+        </a-text>
+        </a-plane>
+
+
+        <a-plane 
+            id="gold-panel" 
+            color="gold" 
+            opacity="0.8" 
+            width="0.9" 
+            height="0.35" 
+            rotation="-10 0 0"
+            position="-0.5 -0.8 -2">
+
+        <a-text 
+            value="GOLD" 
+            align="center" 
+            color="black" 
+            width="2">
+        </a-text>
+        </a-plane>
+
+        <a-plane 
+            id="violet-panel" 
+            color="mediumpurple" 
+            opacity="0.8" 
+            width="0.9" 
+            height="0.35" 
+            rotation="-10 0 0"
+            position="0.5 -0.8 -2">
+
+            <a-text 
+                value="VIOLET" 
+                align="center" 
+                color="black" 
+                width="2">
+            </a-text>
+
+        </a-plane>
+
+        <a-plane 
+            id="rose-panel" 
+            color="lightpink" 
+            opacity="0.8" 
+            width="0.9" 
+            height="0.35" 
+            rotation="-10 0 0"
+            position="1.5 -0.8 -2">
+
+        <a-text 
+            value="ROSE" 
+            align="center" 
+            color="black" 
+            width="2">
+        </a-text>
+
+        </a-plane>
+        <a-camera 
+            position="0 0 0"
+        ></a-camera>
+
+    </a-scene>
+
+    <script>
+        const scene = document.getElementById("scene");
+        const model = document.getElementById("model");
+
+        const circleSound =
+            new Audio("./magic_circle/circle.mp3");
+        circleSound.volume = 0.7;
+        const buttons = [
+            {
+                id: "cyan-panel",
+                file: "c_cyan.glb"
+            },
+            {
+                id: "gold-panel",
+                file: "c_gold.glb"
+            },
+            {
+                id: "violet-panel",
+                file: "c_violet.glb"
+            },
+            {
+                id: "rose-panel",
+                file: "c_rose.glb"
+            }
+        ];
+
+        const wasInside = {};
+
+        buttons.forEach(button => {
+            wasInside[button.id] = false;
+        });
+
+        function changeCircle() {
+
+            const hands = scene.components.hands;
+
+            if (!hands) return;
+
+            buttons.forEach(button => {
+
+                const panel =
+                    document.getElementById(button.id);
+
+                const inside =
+                    hands.isPointOnEntity(8, panel);
+
+                if (inside && !wasInside[button.id]) {
+
+                    model.setAttribute(
+                        "src",
+                        "./magic_circle/" + button.file
+                    );
+                    circleSound.pause();
+                    circleSound.currentTime = 0;
+
+                    circleSound.play();
+
+                    console.log(
+                        "魔法陣変更:", button.file
+                    );
+                }
+
+                wasInside[button.id] = inside;
+
+            });
+        }
+
+        scene.addEventListener(
+            "hand-result",
+            changeCircle
+        );
+    </script>
+
+
+</body>
+
+</html>
